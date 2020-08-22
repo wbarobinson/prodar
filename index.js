@@ -11,7 +11,12 @@ const oAuthConfig = {
   consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
 };
 
-var coordArray = [];
+var coordArray = ["z"];
+
+async function getCoords() {
+  coordArray = ['a','b','c'];
+  return coordArray;
+}
 
 async function sayHi(event) {
    // We check that the message is a direct message
@@ -35,8 +40,6 @@ async function sayHi(event) {
   // Prepare and send the message reply
   const senderScreenName = event.users[message.message_create.sender_id].screen_name;
 
-
-
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
     oauth: oAuthConfig,
@@ -54,6 +57,7 @@ async function sayHi(event) {
       },
     },
   };
+  await getCoords();
   await post(requestConfig);
 }
 
