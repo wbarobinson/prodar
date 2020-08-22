@@ -40,6 +40,8 @@ async function sayHi(event) {
   // Prepare and send the message reply
   const senderScreenName = event.users[message.message_create.sender_id].screen_name;
 
+  const result = await getCoords();
+
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
     oauth: oAuthConfig,
@@ -57,7 +59,9 @@ async function sayHi(event) {
       },
     },
   };
-  await getCoords();
+
+  console.log(requestConfig.json.event.message_create.message_data);
+  console.log(result);
   await post(requestConfig);
 }
 

@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "ngrok": "^3.2.7",
     "twitter-autohook": "^1.7.2"
   }
 }
