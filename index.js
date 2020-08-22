@@ -6,7 +6,7 @@ const { get } = require('http');
 const post = util.promisify(request.post);
 
 
-
+const botId = "24737459"
 
 const oAuthConfig = {
   token: process.env.TWITTER_ACCESS_TOKEN,
@@ -30,9 +30,8 @@ async function getCoords(hashtag) {
     if (error) throw new Error(error);
     repBod = JSON.stringify(JSON.parse(response.body).data[0]);
     console.log("repBod1\n", repBod);
-    return response.body;
+    return repBod;
   });
-  return repBod;
 }
 
 async function sayHi(event) {
@@ -40,17 +39,25 @@ async function sayHi(event) {
    if (!event.direct_message_events) {
     return;
   }
-  const hashtag = "building"
-  //const hashtag = event.message_create.message_data.text;
+
+  //const hashtag = "building"
+
   // Messages are wrapped in an array, so we'll extract the first element
   const message = event.direct_message_events.shift();
-  const hashtag2 = JSON.stringify(message.message_create.message_data.text);
+
+  // We grab the message contents from the tweet
+  let hashtag2 = await JSON.stringify(message.message_create.message_data.text);
   console.log("hashtag2\n", hashtag2);
+
   // We check that the message is valid
   if (typeof message === 'undefined' || typeof message.message_create === 'undefined') {
     return;
   }
- 
+
+  //We check that we aren't including the bot's texts...  
+  if (message.message_create.sender_id === botId) {
+    return;
+  }
   // We filter out message you send, to avoid an infinite loop
   if (message.message_create.sender_id === message.message_create.target.recipient_id) {
     return;
@@ -59,7 +66,7 @@ async function sayHi(event) {
   // Prepare and send the message reply
   const senderScreenName = event.users[message.message_create.sender_id].screen_name;
 
-  const result = await getCoords(hashtag);
+  await getCoords(hashtag2)
 
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
@@ -72,7 +79,7 @@ async function sayHi(event) {
             recipient_id: message.message_create.sender_id,
           },
           message_data: {
-            text: `Hi @${senderScreenName}! ${result} 👋`,
+            text: `Hi @${senderScreenName}! ${repBod} 👋`,
           },
         },
       },
@@ -80,8 +87,9 @@ async function sayHi(event) {
   };
 
   //console.log("reqConfig\n",requestConfig.json.event.message_create.message_data);
-  await console.log("repBod2\n", repBod);
-  await post(requestConfig);
+  //await console.log("repBod2\n", repBod);
+  console.log("repBod2\n", repBod);
+  post(requestConfig);
 }
 
 (async start => {
