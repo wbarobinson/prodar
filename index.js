@@ -1,8 +1,12 @@
 const { Autohook, setWebhook, validateWebhook, WebhookURIError, RateLimitError } = require('twitter-autohook');
 const util = require('util');
 const request = require('request');
+const { get } = require('http');
 
 const post = util.promisify(request.post);
+
+
+
 
 const oAuthConfig = {
   token: process.env.TWITTER_ACCESS_TOKEN,
@@ -11,11 +15,24 @@ const oAuthConfig = {
   consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
 };
 
-var coordArray = ["z"];
+var repBod = "building";
 
-async function getCoords() {
-  coordArray = ['a','b','c'];
-  return coordArray;
+async function getCoords(hashtag) {
+  var options = {
+    'method': 'GET',
+    'url': `https://api.twitter.com/2/tweets/search/recent?expansions=geo.place_id,author_id&place.fields=geo&user.fields=username&query=${hashtag}&max_results=10`,
+    'headers': {
+      'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAADbmGwEAAAAAqsWLSbK9fvMSulMl391sVSZmF1I%3D0KTlIfyCwjQ3UIwqoKNZDpAj0O36PmOqtfZO2oiUij8Ap7NliF',
+      'Cookie': 'personalization_id="v1_5lhFvw9qvMPnaFzOpi7UwA=="; guest_id=v1%3A159804355865560354'
+    }
+  };
+  await request(options, function (error, response) {
+    if (error) throw new Error(error);
+    repBod = JSON.stringify(JSON.parse(response.body).data[0]);
+    console.log("repBod1\n", repBod);
+    return response.body;
+  });
+  return repBod;
 }
 
 async function sayHi(event) {
@@ -23,10 +40,12 @@ async function sayHi(event) {
    if (!event.direct_message_events) {
     return;
   }
-
+  const hashtag = "building"
+  //const hashtag = event.message_create.message_data.text;
   // Messages are wrapped in an array, so we'll extract the first element
   const message = event.direct_message_events.shift();
-
+  const hashtag2 = JSON.stringify(message.message_create.message_data.text);
+  console.log("hashtag2\n", hashtag2);
   // We check that the message is valid
   if (typeof message === 'undefined' || typeof message.message_create === 'undefined') {
     return;
@@ -40,7 +59,7 @@ async function sayHi(event) {
   // Prepare and send the message reply
   const senderScreenName = event.users[message.message_create.sender_id].screen_name;
 
-  const result = await getCoords();
+  const result = await getCoords(hashtag);
 
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
@@ -53,15 +72,15 @@ async function sayHi(event) {
             recipient_id: message.message_create.sender_id,
           },
           message_data: {
-            text: `Hi @${senderScreenName}! ${coordArray} 👋`,
+            text: `Hi @${senderScreenName}! ${result} 👋`,
           },
         },
       },
     },
   };
 
-  console.log(requestConfig.json.event.message_create.message_data);
-  console.log(result);
+  //console.log("reqConfig\n",requestConfig.json.event.message_create.message_data);
+  await console.log("repBod2\n", repBod);
   await post(requestConfig);
 }
 
