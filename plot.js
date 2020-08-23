@@ -85,13 +85,6 @@ async function makePlot(clean_coords) {
 // 	console.log(msg);
 // });
 
-// Convert fs.readFile into Promise version of same    
-// const readFile = util.promisify(fs.readFile);
-
-// async function getStuff() {
-//   let data = await readFile('res.png');
-//   console.log(data)
-// }
 
 // getStuff();
 
