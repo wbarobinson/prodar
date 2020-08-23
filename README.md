@@ -1,6 +1,6 @@
-### Prodar: A Twitter bot to track law enforcement
+# Prodar: A Twitter bot to track law enforcement
 
-# To run this code
+### To run this code
 
 $ git clone https://github.com/wbarobinson/prodar.git
 
