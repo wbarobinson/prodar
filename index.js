@@ -2,6 +2,8 @@ const { Autohook, setWebhook, validateWebhook, WebhookURIError, RateLimitError }
 const util = require('util');
 const request = require('request');
 const axios = require('axios');
+const plot = require('./plot.js');
+const l_util = require('./local_utils.js')
 
 const post = util.promisify(request.post);
 
@@ -25,7 +27,7 @@ async function getPlaces(places_array) {
 async function getCoords(hashtag) {
   var config = {
     method: 'get',
-    url:`https://api.twitter.com/2/tweets/search/recent?expansions=geo.place_id,author_id&place.fields=geo&user.fields=username&query=${hashtag}&max_results=10`,
+    url:`https://api.twitter.com/2/tweets/search/recent?expansions=geo.place_id,author_id&place.fields=geo&user.fields=username&query=${hashtag}&max_results=100`,
     headers: { 
       'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAADbmGwEAAAAAqsWLSbK9fvMSulMl391sVSZmF1I%3D0KTlIfyCwjQ3UIwqoKNZDpAj0O36PmOqtfZO2oiUij8Ap7NliF', 
       'Cookie': 'personalization_id="v1_xQuSglKogja1ug6Y/z6g1w=="; guest_id=v1%3A159804361564129710'
@@ -38,6 +40,7 @@ async function getCoords(hashtag) {
     var clean_coords = "no data" // default
     if (places) {
       clean_coords = await getPlaces(places);
+      await plot.makePlot(clean_coords) // 'res.png' has the image we want
     }
     // Places is an array of arrays where each subarray is a coordinate set
     return clean_coords;
@@ -67,7 +70,7 @@ async function buildConfig(message,senderScreenName,coords) {
   return requestConfig;
 }
 
-async function sayHi(event) {
+async function mainLogic(event) {
   // We check that the message is a direct message
   if (!event.direct_message_events) {
     return;
@@ -93,8 +96,10 @@ async function sayHi(event) {
   const senderScreenName = event.users[message.message_create.sender_id].screen_name;
 
   // Get user query
-  const hashtag2 = JSON.stringify(message.message_create.message_data.text);
+  var hashtag2 = message.message_create.message_data.text;
   // Call input validation function to alter hashtag to %23
+  hashtag2 = await l_util.cleanHashtag(hashtag2);
+  
   
   // get query coordinates
   const coords = await getCoords(hashtag2);
@@ -107,9 +112,10 @@ async function sayHi(event) {
 (async start => {
   try {
     const webhook = new Autohook();
+    // Calls mainlogic on any event
     webhook.on('event', async event => {
       if (event.direct_message_events) {
-        await sayHi(event);
+        await mainLogic(event);
       }
     });
     // Removes existing webhooks
