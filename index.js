@@ -42,6 +42,7 @@ async function getCoords(hashtag) {
     if (places) {
       clean_coords = await getPlaces(places);
       await plot.makePlot(clean_coords) // 'res.png' has the image we want
+      const png_64 = await l_util.writebase64('./res.png') // creates read_png in base64
     }
     // Places is an array of arrays where each subarray is a coordinate set
     return clean_coords;
