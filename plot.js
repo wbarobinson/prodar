@@ -32,7 +32,7 @@ async function makePlot(clean_coords) {
 	avg_long = total_long / clean_coords.length;
 	avg_lat = total_lat / clean_coords.length;
 	var avg_center = {lat: avg_lat, lon: avg_long}
-	console.log(avg_center)
+	console.log("Avg Center: ",avg_center)
 
 	// Build map viz
 	var data = [{
