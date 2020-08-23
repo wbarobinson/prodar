@@ -1,7 +1,10 @@
-var plotly_api_key = "1QIeQ64d1ovLY5OggTdv";
+const os = require('os');
+const path = require('path');
 
-var plotly = require('plotly')("tony-goss", plotly_api_key)
+require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
 
+
+var plotly = require('plotly')(process.env.PLOTLY_USER, process.env.PLOTLY_API)
 var fs = require('fs');
 
 const util = require('util');
@@ -68,7 +71,11 @@ async function makePlot(clean_coords) {
 	});
 }
 
+// Sample function call:
+// makePlot([['35','-110'],['35.5','-110.5']])
 
+console.log(process.env);
+console.log(os.homedir())
 // Convert fs.readFile into Promise version of same    
 // const readFile = util.promisify(fs.readFile);
 
