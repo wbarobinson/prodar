@@ -43,15 +43,13 @@ async function getMediaId(fileLocation) {
     },
     data : data
   };
-
-  axios(configMediaId)
-  .then(function (response) {
-    console.log(JSON.stringify(response.data));
-    return JSON.stringify(response.data.media_id_string);
-  })
-  .catch(function (error) {
-  console.log(error);
-  });
+  try {
+    const response = await axios(configMediaId)
+    return response.data.media_id_string;
+  }
+  catch (error) {
+    console.log(error)
+  }
 
 }
 
@@ -73,7 +71,6 @@ async function getCoords(hashtag) {
       clean_coords = await getPlaces(places);
       await plot.makePlot(clean_coords); // 'res.png' has the image we want
       await l_util.writebase64('./res.png'); //./png_64
-      
     }
     // Places is an array of arrays where each subarray is a coordinate set
     return clean_coords;
@@ -82,7 +79,7 @@ async function getCoords(hashtag) {
   }
 }
 
-async function buildConfig(message,senderScreenName,coords/*,mediaId*/) {
+async function buildConfig(message,senderScreenName,coords,mediaId) {
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
     oauth: oAuthConfig,
@@ -94,18 +91,19 @@ async function buildConfig(message,senderScreenName,coords/*,mediaId*/) {
             recipient_id: message.message_create.sender_id,
           },
           message_data: {
-            text: `Hi @${senderScreenName}! ${coords} 👋`,
+            text: `Hi @${senderScreenName}! Here are your coordinates ^ 👋`,
             attachment: {
-              type:"media", 
+              type: "media", 
               media: {
-                "id": '1297548532518400001'
+                "id": mediaId
               }
-            }
+            },
           },
         },
       },
     },
   };
+  //console.log(requestConfig.json.event.message_create.message_data);
   return requestConfig;
 }
 
@@ -144,9 +142,8 @@ async function mainLogic(event) {
   const coords = await getCoords(hashtag2);
 
   const mediaId = await getMediaId(fileLocation);
-  console.log(mediaId);
   // console.log("returning info from getCoords\n",coords)
-  const requestConfig = await buildConfig(message,senderScreenName,coords/*,mediaId*/)
+  const requestConfig = await buildConfig(message,senderScreenName,coords,mediaId)
   //console.log(requestConfig);
   await post(requestConfig);
 }
@@ -202,5 +199,4 @@ async function mainLogic(event) {
 - Catch 404 error and call node index.js again
 - make bot account
 - Bot ID in env variables
-- some input validation by the user
 */
