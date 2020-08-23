@@ -1,10 +1,11 @@
-const os = require('os');
-const path = require('path');
+// const os = require('os');
+// const path = require('path');
 
-require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
+//require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
+const PLOTLY_API= "1QIeQ64d1ovLY5OggTdv"
+const PLOTLY_USER= "tony-goss"
 
-
-var plotly = require('plotly')(process.env.PLOTLY_USER, process.env.PLOTLY_API)
+var plotly = require('plotly')(PLOTLY_USER,PLOTLY_API)
 var fs = require('fs');
 
 const util = require('util');
@@ -31,6 +32,7 @@ async function makePlot(clean_coords) {
 	avg_long = total_long / clean_coords.length;
 	avg_lat = total_lat / clean_coords.length;
 	var avg_center = {lat: avg_lat, lon: avg_long}
+	console.log(avg_center)
 
 	// Build map viz
 	var data = [{
@@ -50,7 +52,7 @@ async function makePlot(clean_coords) {
 	    bearing:0,
 	    center: avg_center,
 	    pitch:0,
-	    zoom:5
+	    zoom:8
 	  },
 	}
 
@@ -72,10 +74,17 @@ async function makePlot(clean_coords) {
 }
 
 // Sample function call:
-// makePlot([['35','-110'],['35.5','-110.5']])
+// makePlot([[-73.623,45.54],[-73.624,45.538]])
 
-console.log(process.env);
-console.log(os.homedir())
+
+// var data = [{x:[0,1,2], y:[3,2,1], type: 'bar'}];
+// var layout = {fileopt : "overwrite", filename : "simple-node-example"};
+
+// plotly.plot(data, layout, function (err, msg) {
+// 	if (err) return console.log(err);
+// 	console.log(msg);
+// });
+
 // Convert fs.readFile into Promise version of same    
 // const readFile = util.promisify(fs.readFile);
 
