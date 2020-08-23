@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^0.20.0",
     "ngrok": "^3.2.7",
     "twitter-autohook": "^1.7.2"
   }

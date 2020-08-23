@@ -1,6 +1,7 @@
 const { Autohook, setWebhook, validateWebhook, WebhookURIError, RateLimitError } = require('twitter-autohook');
 const util = require('util');
 const request = require('request');
+const axios = require('axios');
 
 const post = util.promisify(request.post);
 
@@ -11,22 +12,73 @@ const oAuthConfig = {
   consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
 };
 
-var coordArray = ["z"];
+const botId = "24737459"
 
-async function getCoords() {
-  coordArray = ['a','b','c'];
-  return coordArray;
+async function getPlaces(places_array) {
+  clean_coords = []
+  places_array.forEach(function(item,index) {
+    clean_coords.push(item.geo.bbox.slice(0,2))
+  });
+  return clean_coords
+}
+
+async function getCoords(hashtag) {
+  var config = {
+    method: 'get',
+    url:`https://api.twitter.com/2/tweets/search/recent?expansions=geo.place_id,author_id&place.fields=geo&user.fields=username&query=${hashtag}&max_results=10`,
+    headers: { 
+      'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAADbmGwEAAAAAqsWLSbK9fvMSulMl391sVSZmF1I%3D0KTlIfyCwjQ3UIwqoKNZDpAj0O36PmOqtfZO2oiUij8Ap7NliF', 
+      'Cookie': 'personalization_id="v1_xQuSglKogja1ug6Y/z6g1w=="; guest_id=v1%3A159804361564129710'
+    }
+  };
+
+  try {
+    const response = await axios(config);
+    const places = response.data.includes.places
+    var clean_coords = "no data" // default
+    if (places) {
+      clean_coords = await getPlaces(places);
+    }
+    // Places is an array of arrays where each subarray is a coordinate set
+    return clean_coords;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function buildConfig(message,senderScreenName,coords) {
+  const requestConfig = {
+    url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
+    oauth: oAuthConfig,
+    json: {
+      event: {
+        type: 'message_create',
+        message_create: {
+          target: {
+            recipient_id: message.message_create.sender_id,
+          },
+          message_data: {
+            text: `Hi @${senderScreenName}! ${coords} 👋`,
+          },
+        },
+      },
+    },
+  };
+  return requestConfig;
 }
 
 async function sayHi(event) {
-   // We check that the message is a direct message
-   if (!event.direct_message_events) {
+  // We check that the message is a direct message
+  if (!event.direct_message_events) {
     return;
   }
 
   // Messages are wrapped in an array, so we'll extract the first element
   const message = event.direct_message_events.shift();
 
+  if (message.message_create.sender_id === botId) {
+    return;
+  } 
   // We check that the message is valid
   if (typeof message === 'undefined' || typeof message.message_create === 'undefined') {
     return;
@@ -40,28 +92,15 @@ async function sayHi(event) {
   // Prepare and send the message reply
   const senderScreenName = event.users[message.message_create.sender_id].screen_name;
 
-  const result = await getCoords();
-
-  const requestConfig = {
-    url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
-    oauth: oAuthConfig,
-    json: {
-      event: {
-        type: 'message_create',
-        message_create: {
-          target: {
-            recipient_id: message.message_create.sender_id,
-          },
-          message_data: {
-            text: `Hi @${senderScreenName}! ${coordArray} 👋`,
-          },
-        },
-      },
-    },
-  };
-
-  console.log(requestConfig.json.event.message_create.message_data);
-  console.log(result);
+  // Get user query
+  const hashtag2 = JSON.stringify(message.message_create.message_data.text);
+  // Call input validation function to alter hashtag to %23
+  
+  // get query coordinates
+  const coords = await getCoords(hashtag2);
+  // console.log("returning info from getCoords\n",coords)
+  const requestConfig = await buildConfig(message,senderScreenName,coords)
+  //console.log(requestConfig);
   await post(requestConfig);
 }
 
@@ -87,3 +126,31 @@ async function sayHi(event) {
     process.exit(1);
   }
 })();  
+
+
+// UNUSED AUXILIARY FUNCTIONS
+
+// Filter tweets for geo only
+
+// Use this function if you want tweet content in addition to geo
+
+
+// async function filterData(tweet_array) {
+//   function filter_geo(tweet_object, index, arr) {
+//     // Returns true or false
+//     return Object.keys(tweet_object).includes('geo');
+//   }
+//   // Subset of tweet array where object keys includes geo
+//   // Can be empty []
+//   geo_array = tweet_array.filter(filter_geo);
+
+//   return geo_array;
+// }
+
+// TODO FEATURES:
+/* 
+- Catch 404 error and call node index.js again
+- make bot account
+- Bot ID in env variables
+- some input validation by the user
+*/
