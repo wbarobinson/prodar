@@ -5,17 +5,21 @@
 const PLOTLY_API= "1QIeQ64d1ovLY5OggTdv"
 const PLOTLY_USER= "tony-goss"
 
+const util = require('util');
+
 var plotly = require('plotly')(PLOTLY_USER,PLOTLY_API)
 var fs = require('fs');
 
-const util = require('util');
+
+const l_util = require('./local_utils.js');
 
 // const test1 = require('./test.js')
 
 // test1.test();
 
 // clean_coords is a list of lat/long pairs
-async function makePlot(clean_coords) {
+function makePlot(clean_coords) {
+	console.log("clean coords ", clean_coords);
 	lats = [];
 	longs = [];
 	total_long = 0;
@@ -64,38 +68,61 @@ async function makePlot(clean_coords) {
 	    height: 500
 	};
 
-	// Write map viz to file 'res.png'
-	plotly.getImage(figure, imgOpts, function (error, imageStream) {
-	    if (error) return console.log (error);
-	    
-	    var fileStream = fs.createWriteStream('res.png');
-	    imageStream.pipe(fileStream);
-	});
+	var mapConfig = {};
+	mapConfig["figure"] = figure;
+	mapConfig["imgOpts"] = imgOpts;
+
+	return mapConfig;
 }
 
-// Sample function call:
-// makePlot([[-73.623,45.54],[-73.624,45.538]])
+//const promiseWritePlot = util.promisify(plotly.getImage);
+// Writes image to file on resolve
+let promiseWritePlot = function(mapConfig,fileLocation) {
+  return new Promise((resolve, reject) => {
+    plotly.getImage(mapConfig.figure, mapConfig.imgOpts, (err, imageStream) => {
+      if (err) reject(err)
+      else {
+      	const fileStream = fs.createWriteStream('./res.png')
+      	imageStream.pipe(fileStream);
+      	resolve('./res.png');
+      } 
+    });
+  })
+}
 
+let promiseTo64 = function(fileLocation) {
+  return new Promise((resolve, reject) => {
+		fs.readFile(fileLocation, function(err, data){ 
+		    if (err) reject(err);
 
-// var data = [{x:[0,1,2], y:[3,2,1], type: 'bar'}];
-// var layout = {fileopt : "overwrite", filename : "simple-node-example"};
+		    // When image is read (as buffer), convert to base64
+		    const base64 = data.toString('base64'); 
 
-// plotly.plot(data, layout, function (err, msg) {
-// 	if (err) return console.log(err);
-// 	console.log(msg);
-// });
+		    // Write to file
+			fs.writeFile("png_64", base64, (err) => { 
+			  if (err) reject(err); 
+			  resolve('png_64');
+			}); 
+		});
+  });
+}
 
+async function buildPlot (fileLocation,cleanedCoords) {
 
-// getStuff();
+  const mapConfig = await makePlot(cleanedCoords);
 
-// Can't use `await` outside of an async function so you need to chain
-// with then()
-// getStuff().then(data => {
-//   console.log(data);
-// })
+	const imageLoc = await promiseWritePlot(mapConfig,fileLocation);
+
+	const file64 = await promiseTo64(imageLoc);
+
+	return file64;
+}
+
+// buildPlot();
+
 
 module.exports = {
-	makePlot
+	buildPlot
 }    
 // Will need to calculate center
 

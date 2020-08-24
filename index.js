@@ -8,7 +8,23 @@ const fs = require('fs');
 var FormData = require('form-data');
 
 
-const fileLocation = "./png_64"
+// async function asyncTask () {
+//   try {
+//     // coords is errormsg or places array
+//     const places = await getCoords();
+//     const coords = await cleanCoords(places);
+//     const file_location = await plot.makePlot(clean_coords);
+
+//     const mediaId = await getMediaId(fileLocation);
+//     // console.log("returning info from getCoords\n",coords)
+//     const requestConfig = await buildConfig(message,senderScreenName,coords,mediaId)
+//     //console.log(requestConfig);
+//     return await post(requestConfig);
+//   } catch (err) {
+//     console.log(err);
+//   }
+// }
+
 const post = util.promisify(request.post);
 
 
@@ -20,8 +36,10 @@ const oAuthConfig = {
 };
 
 const botId = "24737459"
+const errorMsg = "No results returned";
+const errorGeo = "No geo results";
 
-async function getPlaces(places_array) {
+async function cleanCoords(places_array) {
   clean_coords = []
   places_array.forEach(function(item,index) {
     clean_coords.push(item.geo.bbox.slice(0,2))
@@ -30,6 +48,7 @@ async function getPlaces(places_array) {
 }
 //UPLOAD FILE AND GET MEDIA ID
 async function getMediaId(fileLocation) {
+  console.log("IN MEDIA ID");
   var data = new FormData();
   data.append('media_data', fs.createReadStream(fileLocation));
 
@@ -48,7 +67,7 @@ async function getMediaId(fileLocation) {
     return response.data.media_id_string;
   }
   catch (error) {
-    console.log(error)
+    console.log('media ID errpr :(')
   }
 
 }
@@ -63,23 +82,51 @@ async function getCoords(hashtag) {
     }
   };
 
+  // Types of edge cases:
+  // 1. No data from twitter search
+  // 2. No geo data
   try {
     const response = await axios(config);
+
+    if(response.data.meta.result_count == '0') {
+      return errorMsg;
+    }      
     const places = response.data.includes.places
-    var clean_coords = "no data" // default
+    // default
     if (places) {
-      clean_coords = await getPlaces(places);
-      await plot.makePlot(clean_coords); // 'res.png' has the image we want
-      await l_util.writebase64('./res.png'); //./png_64
+      return
     }
-    // Places is an array of arrays where each subarray is a coordinate set
-    return clean_coords;
+    else {
+      return errorGeo; 
+    }
   } catch (error) {
-    console.error(error);
+    console.error('axios error');
   }
 }
 
-async function buildConfig(message,senderScreenName,coords,mediaId) {
+async function errorConfig(message,senderScreenName,error_msg) {
+  const requestConfig = {
+    url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
+    oauth: oAuthConfig,
+    json: {
+      event: {
+        type: 'message_create',
+        message_create: {
+          target: {
+            recipient_id: message.message_create.sender_id,
+          },
+          message_data: {
+            text: `Hi @${senderScreenName}! ${error_msg} :(`,
+          },
+        },
+      },
+    },
+  };
+  //console.log(requestConfig.json.event.message_create.message_data);
+  return requestConfig;
+}
+
+async function buildConfig(message,senderScreenName,media_id) {
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
     oauth: oAuthConfig,
@@ -95,7 +142,7 @@ async function buildConfig(message,senderScreenName,coords,mediaId) {
             attachment: {
               type: "media", 
               media: {
-                "id": mediaId
+                "id": media_id
               }
             },
           },
@@ -108,6 +155,7 @@ async function buildConfig(message,senderScreenName,coords,mediaId) {
 }
 
 async function mainLogic(event) {
+  console.log('here')
   // We check that the message is a direct message
   if (!event.direct_message_events) {
     return;
@@ -135,17 +183,30 @@ async function mainLogic(event) {
   // Get user query
   var hashtag2 = message.message_create.message_data.text;
   // Call input validation function to alter hashtag to %23
-  hashtag2 = await l_util.cleanHashtag(hashtag2);
+  hashtag2 = l_util.cleanHashtag(hashtag2);
   
   
-  // get query coordinates
-  const coords = await getCoords(hashtag2);
+  try {
 
-  const mediaId = await getMediaId(fileLocation);
-  // console.log("returning info from getCoords\n",coords)
-  const requestConfig = await buildConfig(message,senderScreenName,coords,mediaId)
-  //console.log(requestConfig);
-  await post(requestConfig);
+    // getCoords checks for errors then returns coordindates
+    const raw_coords = await getCoords(hashtag2);
+
+    // getPlaces cleans the data, returns it
+    const cleanedCoords = await cleanCoords(raw_coords);
+
+    const fileLocation = './res.png'
+
+    const file64 = await plot.buildPlot(fileLocation,cleanedCoords)
+
+    const mediaId = await getMediaId(file64);
+    // console.log("returning info from getCoords\n",coords)
+    const requestConfig = await buildConfig(message,senderScreenName,mediaId)
+    //console.log(requestConfig);
+    await post(requestConfig);
+
+  } catch (err) {
+    console.log('we threw an error');
+  }
 }
 
 (async start => {
