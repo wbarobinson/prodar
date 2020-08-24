@@ -10,12 +10,11 @@ const util = require('util');
 var plotly = require('plotly')(PLOTLY_USER,PLOTLY_API)
 var fs = require('fs');
 
+const l_util = require('./local_utils.js')
 
-const l_util = require('./local_utils.js');
+const readFile = util.promisify(fs.readFile);
+const writeFile = util.promisify(fs.writeFile) 
 
-// const test1 = require('./test.js')
-
-// test1.test();
 
 // clean_coords is a list of lat/long pairs
 function makePlot(clean_coords) {
@@ -91,20 +90,20 @@ let promiseWritePlot = function(mapConfig,fileLocation) {
 }
 
 let promiseTo64 = function(fileLocation) {
-  return new Promise((resolve, reject) => {
-		fs.readFile(fileLocation, function(err, data){ 
-		    if (err) reject(err);
+		readFileContent('./res.png') 
+		// If promise resolved and datas are read  
+		.then(buff => { 
+		  const contents = buff.toString('base64');
+		  console.log(`Length of the file :\n${buff.length}`); 
+		}); 
+}
 
-		    // When image is read (as buffer), convert to base64
-		    const base64 = data.toString('base64'); 
-
-		    // Write to file
-			fs.writeFile("png_64", base64, (err) => { 
-			  if (err) reject(err); 
-			  resolve('png_64');
-			}); 
-		});
-  });
+async function write64 (pngLocation) {
+	const base64Location = 'png_64';
+	const buff = await readFile(pngLocation);
+	const contents = await buff.toString('base64');
+	await writeFile(base64Location,contents);
+	return base64Location;
 }
 
 async function buildPlot (fileLocation,cleanedCoords) {
@@ -113,13 +112,9 @@ async function buildPlot (fileLocation,cleanedCoords) {
 
 	const imageLoc = await promiseWritePlot(mapConfig,fileLocation);
 
-	const file64 = await promiseTo64(imageLoc);
-
+	const file64 = await write64(fileLocation);
 	return file64;
 }
-
-// buildPlot();
-
 
 module.exports = {
 	buildPlot
