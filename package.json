@@ -12,6 +12,7 @@
     "axios": "^0.20.0",
     "ngrok": "^3.2.7",
     "plotly": "^1.0.6",
-    "twitter-autohook": "^1.7.2"
+    "twitter-autohook": "^1.7.2",
+    "twitter-media": "^0.2.0"
   }
 }

@@ -39,16 +39,17 @@ const botId = "24737459"
 const errorMsg = "No results returned";
 const errorGeo = "No geo results";
 
-async function cleanCoords(places_array) {
-  clean_coords = []
-  places_array.forEach(function(item,index) {
+async function cleanCoords(rawCoords) {
+  console.log("places array", rawCoords);
+  var clean_coords = [];
+  rawCoords.forEach(function(item,index) {
     clean_coords.push(item.geo.bbox.slice(0,2))
   });
   return clean_coords
 }
 //UPLOAD FILE AND GET MEDIA ID
 async function getMediaId(fileLocation) {
-  console.log("IN MEDIA ID");
+  console.log("IN MEDIA ID here is fileLocation", fileLocation);
   var data = new FormData();
   data.append('media_data', fs.createReadStream(fileLocation));
 
@@ -67,7 +68,7 @@ async function getMediaId(fileLocation) {
     return response.data.media_id_string;
   }
   catch (error) {
-    console.log('media ID errpr :(')
+    console.log('media ID error :(', error);
   }
 
 }
@@ -94,13 +95,13 @@ async function getCoords(hashtag) {
     const places = response.data.includes.places
     // default
     if (places) {
-      return
+      return places
     }
     else {
       return errorGeo; 
     }
   } catch (error) {
-    console.error('axios error');
+    console.error('axios error', error);
   }
 }
 
@@ -155,7 +156,6 @@ async function buildConfig(message,senderScreenName,media_id) {
 }
 
 async function mainLogic(event) {
-  console.log('here')
   // We check that the message is a direct message
   if (!event.direct_message_events) {
     return;
@@ -183,13 +183,13 @@ async function mainLogic(event) {
   // Get user query
   var hashtag2 = message.message_create.message_data.text;
   // Call input validation function to alter hashtag to %23
-  hashtag2 = l_util.cleanHashtag(hashtag2);
+  cleanHashtag = await l_util.cleanHashtag(hashtag2);
   
   
   try {
 
     // getCoords checks for errors then returns coordindates
-    const raw_coords = await getCoords(hashtag2);
+    const raw_coords = await getCoords(cleanHashtag);
 
     // getPlaces cleans the data, returns it
     const cleanedCoords = await cleanCoords(raw_coords);
@@ -197,7 +197,7 @@ async function mainLogic(event) {
     const fileLocation = './res.png'
 
     const file64 = await plot.buildPlot(fileLocation,cleanedCoords)
-
+    console.log("what is file64", file64, fs.stats(file64));
     const mediaId = await getMediaId(file64);
     // console.log("returning info from getCoords\n",coords)
     const requestConfig = await buildConfig(message,senderScreenName,mediaId)
@@ -205,7 +205,7 @@ async function mainLogic(event) {
     await post(requestConfig);
 
   } catch (err) {
-    console.log('we threw an error');
+    console.log('we threw an error', err);
   }
 }
 

@@ -90,15 +90,16 @@ let promiseWritePlot = function(mapConfig,fileLocation) {
   })
 }
 
+
+
 let promiseTo64 = function(fileLocation) {
   return new Promise((resolve, reject) => {
-		fs.readFile(fileLocation, function(err, data){ 
+		fs.readFile(fileLocation, (err, data) => { 
 		    if (err) reject(err);
-
-		    // When image is read (as buffer), convert to base64
-		    const base64 = data.toString('base64'); 
-
-		    // Write to file
+			// When image is read (as buffer), convert to base64
+		    var base64 = data.toString('base64'); 
+			// Write to file
+			console.log(base64)
 			fs.writeFile("png_64", base64, (err) => { 
 			  if (err) reject(err); 
 			  resolve('png_64');
@@ -109,16 +110,24 @@ let promiseTo64 = function(fileLocation) {
 
 async function buildPlot (fileLocation,cleanedCoords) {
 
-  const mapConfig = await makePlot(cleanedCoords);
+  	const mapConfig = makePlot(cleanedCoords);
 
 	const imageLoc = await promiseWritePlot(mapConfig,fileLocation);
 
 	const file64 = await promiseTo64(imageLoc);
-
 	return file64;
 }
 
-// buildPlot();
+async function temp () {
+	const res = await buildPlot('./res.png',[[-73.623,45.54],[-73.624,45.538]])
+	console.log(res);
+}
+
+temp();
+
+
+
+//console.log(buildPlot('./res.png',[[-73.623,45.54],[-73.624,45.538]]))
 
 
 module.exports = {
