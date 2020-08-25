@@ -89,6 +89,7 @@ let promiseWritePlot = function(mapConfig,fileLocation) {
   })
 }
 
+/*
 let promiseTo64 = function(fileLocation) {
 		readFileContent('./res.png') 
 		// If promise resolved and datas are read  
@@ -97,6 +98,7 @@ let promiseTo64 = function(fileLocation) {
 		  console.log(`Length of the file :\n${buff.length}`); 
 		}); 
 }
+*/
 
 async function write64 (pngLocation) {
 	const base64Location = 'png_64';
@@ -122,3 +124,10 @@ module.exports = {
 // Will need to calculate center
 
 
+async function temp () {
+	const res = await buildPlot('./res.png',[[-73.623,45.54],[-73.624,45.538]])
+
+	console.log("end of temp ",res);
+}
+
+temp();
