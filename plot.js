@@ -1,21 +1,22 @@
-// const os = require('os');
-// const path = require('path');
+const os = require('os');
+const path = require('path');
 
-//require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
-const PLOTLY_API= "1QIeQ64d1ovLY5OggTdv"
-const PLOTLY_USER= "tony-goss"
-
-var plotly = require('plotly')(PLOTLY_USER,PLOTLY_API)
-var fs = require('fs');
+require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
 
 const util = require('util');
 
-// const test1 = require('./test.js')
+var plotly = require('plotly')(process.env.PLOTLY_USER,process.env.PLOTLY_API)
+var fs = require('fs');
 
-// test1.test();
+const l_util = require('./local_utils.js')
+
+const readFile = util.promisify(fs.readFile);
+const writeFile = util.promisify(fs.writeFile) 
+
 
 // clean_coords is a list of lat/long pairs
-async function makePlot(clean_coords) {
+function makePlot(clean_coords) {
+	console.log("clean coords ", clean_coords);
 	lats = [];
 	longs = [];
 	total_long = 0;
@@ -64,39 +65,66 @@ async function makePlot(clean_coords) {
 	    height: 500
 	};
 
-	// Write map viz to file 'res.png'
-	plotly.getImage(figure, imgOpts, function (error, imageStream) {
-	    if (error) return console.log (error);
-	    
-	    var fileStream = fs.createWriteStream('res.png');
-	    imageStream.pipe(fileStream);
-	});
+	var mapConfig = {};
+	mapConfig["figure"] = figure;
+	mapConfig["imgOpts"] = imgOpts;
+
+	return mapConfig;
 }
 
-// Sample function call:
-// makePlot([[-73.623,45.54],[-73.624,45.538]])
+//const promiseWritePlot = util.promisify(plotly.getImage);
+// Writes image to file on resolve
+let promiseWritePlot = function(mapConfig,pngLocation) {
+  return new Promise((resolve, reject) => {
+    plotly.getImage(mapConfig.figure, mapConfig.imgOpts, (err, imageStream) => {
+      if (err) reject(err)
+      else {
+	      	const fileStream = fs.createWriteStream(pngLocation)
+	      	imageStream.pipe(fileStream);
+	      	fileStream.on('finish', () => {
+	  				console.log('All writes are now complete.');
+						readFile(pngLocation).then(function (data) {
+							console.log(`Length of the file1: ${data.length}`);
+							resolve(data);
+						});
+					});
+      } 
+    });
+  })
+}
 
 
-// var data = [{x:[0,1,2], y:[3,2,1], type: 'bar'}];
-// var layout = {fileopt : "overwrite", filename : "simple-node-example"};
+async function write64 (pngLocation) {
+	const base64Location = './png_64';
+	const buff = await readFile(pngLocation);
+	const contents = buff.toString('base64');
+	console.log(`Length of the file2 - confirm: ${buff.length}`);
+	await writeFile(base64Location,contents);
+	//console.log(`Length 2 of the file :\n${buff.length}`);
+	return base64Location;
+}
 
-// plotly.plot(data, layout, function (err, msg) {
-// 	if (err) return console.log(err);
-// 	console.log(msg);
-// });
+async function buildPlot (pngLocation,cleanedCoords) {
 
+  const mapConfig = await makePlot(cleanedCoords);
 
-// getStuff();
+	const imageLoc = await promiseWritePlot(mapConfig,pngLocation);
 
-// Can't use `await` outside of an async function so you need to chain
-// with then()
-// getStuff().then(data => {
-//   console.log(data);
-// })
+	const file64 = await write64(pngLocation);
+	return file64;
+}
 
 module.exports = {
-	makePlot
+	buildPlot
 }    
 // Will need to calculate center
 
 
+async function temp () {
+	console.log(process.env);
+	const res = await buildPlot('./res.png',[[-73.623,45.54],[-73.624,45.538]])
+	// await write64('./res.png');
+	console.log("end of temp ", res);
+}
+
+// temp();

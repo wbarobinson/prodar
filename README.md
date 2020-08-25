@@ -12,7 +12,15 @@ These protestors and protest organizers can then DM the bot to get all the geolo
 This can help everyone better organize safely.
 
 
-### To run this code
+### To use this bot:
+
+Send a direct message to [Prodar2020](https://twitter.com/2020prodar) with your query.
+
+Toy example: dm '#hftprodar' to see a sample.
+
+### To make your own bot with this code
+
+1. Follow these [these instructions](env_template.txt) to set your environment variables
 
 $ git clone https://github.com/wbarobinson/prodar.git
 

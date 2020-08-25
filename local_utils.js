@@ -12,11 +12,10 @@ async function cleanHashtag(user_string) {
 
 // Write a png to base64
 async function writebase64(file) {
-
 	async function base64_encode(file) {
 	    // Read image from file
-		var image = await fs.readFile(file, function(err, data){ 
-		    if (err) console.log(err);
+		fs.readFile(file, function(err, data){ 
+		    if (err) console.log(file, " doesn't exist");
 
 		    // When image is read (as buffer), convert to base64
 		    const base64 = data.toString('base64'); 
@@ -24,11 +23,12 @@ async function writebase64(file) {
 		    // Write to file
 			fs.writeFile("png_64", base64, (err) => { 
 			  if (err) console.log(err); 
+			  console.log('wrote png to 64')
 			}); 
 		});
 	}
 
-	base64_encode(file);
+	await base64_encode(file);
 }
 
 
