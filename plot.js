@@ -1,13 +1,11 @@
-// const os = require('os');
-// const path = require('path');
+const os = require('os');
+const path = require('path');
 
-//require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
-const PLOTLY_API= "1QIeQ64d1ovLY5OggTdv"
-const PLOTLY_USER= "tony-goss"
+require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
 
 const util = require('util');
 
-var plotly = require('plotly')(PLOTLY_USER,PLOTLY_API)
+var plotly = require('plotly')(process.env.PLOTLY_USER,process.env.PLOTLY_API)
 var fs = require('fs');
 
 const l_util = require('./local_utils.js')
@@ -76,45 +74,43 @@ function makePlot(clean_coords) {
 
 //const promiseWritePlot = util.promisify(plotly.getImage);
 // Writes image to file on resolve
-let promiseWritePlot = function(mapConfig,fileLocation) {
+let promiseWritePlot = function(mapConfig,pngLocation) {
   return new Promise((resolve, reject) => {
     plotly.getImage(mapConfig.figure, mapConfig.imgOpts, (err, imageStream) => {
       if (err) reject(err)
       else {
-      	const fileStream = fs.createWriteStream('./res.png')
-      	imageStream.pipe(fileStream);
-      	resolve('./res.png');
+	      	const fileStream = fs.createWriteStream(pngLocation)
+	      	imageStream.pipe(fileStream);
+	      	fileStream.on('finish', () => {
+	  				console.log('All writes are now complete.');
+						readFile(pngLocation).then(function (data) {
+							console.log(`Length of the file1: ${data.length}`);
+							resolve(data);
+						});
+					});
       } 
     });
   })
 }
 
-/*
-let promiseTo64 = function(fileLocation) {
-		readFileContent('./res.png') 
-		// If promise resolved and datas are read  
-		.then(buff => { 
-		  const contents = buff.toString('base64');
-		  console.log(`Length of the file :\n${buff.length}`); 
-		}); 
-}
-*/
 
 async function write64 (pngLocation) {
-	const base64Location = 'png_64';
+	const base64Location = './png_64';
 	const buff = await readFile(pngLocation);
-	const contents = await buff.toString('base64');
+	const contents = buff.toString('base64');
+	console.log(`Length of the file2 - confirm: ${buff.length}`);
 	await writeFile(base64Location,contents);
+	//console.log(`Length 2 of the file :\n${buff.length}`);
 	return base64Location;
 }
 
-async function buildPlot (fileLocation,cleanedCoords) {
+async function buildPlot (pngLocation,cleanedCoords) {
 
   const mapConfig = await makePlot(cleanedCoords);
 
-	const imageLoc = await promiseWritePlot(mapConfig,fileLocation);
+	const imageLoc = await promiseWritePlot(mapConfig,pngLocation);
 
-	const file64 = await write64(fileLocation);
+	const file64 = await write64(pngLocation);
 	return file64;
 }
 
@@ -125,9 +121,10 @@ module.exports = {
 
 
 async function temp () {
+	console.log(process.env);
 	const res = await buildPlot('./res.png',[[-73.623,45.54],[-73.624,45.538]])
-
-	console.log("end of temp ",res);
+	// await write64('./res.png');
+	console.log("end of temp ", res);
 }
 
-temp();
+// temp();

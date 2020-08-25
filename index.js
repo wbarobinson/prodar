@@ -8,23 +8,6 @@ const fs = require('fs');
 var FormData = require('form-data');
 
 
-// async function asyncTask () {
-//   try {
-//     // coords is errormsg or places array
-//     const places = await getCoords();
-//     const coords = await cleanCoords(places);
-//     const file_location = await plot.makePlot(clean_coords);
-
-//     const mediaId = await getMediaId(fileLocation);
-//     // console.log("returning info from getCoords\n",coords)
-//     const requestConfig = await buildConfig(message,senderScreenName,coords,mediaId)
-//     //console.log(requestConfig);
-//     return await post(requestConfig);
-//   } catch (err) {
-//     console.log(err);
-//   }
-// }
-
 const post = util.promisify(request.post);
 
 
@@ -35,44 +18,47 @@ const oAuthConfig = {
   consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
 };
 
-const botId = "24737459"
+const botId = process.env.BOT_ID;
 const errorMsg = "No results returned";
 const errorGeo = "No geo results";
+const pngLocation = './res.png'
+
 
 async function cleanCoords(rawCoords) {
-  console.log("places array", rawCoords);
+  console.log("raw Coords", rawCoords);
   var clean_coords = [];
   rawCoords.forEach(function(item,index) {
     clean_coords.push(item.geo.bbox.slice(0,2))
   });
   return clean_coords
 }
-//UPLOAD FILE AND GET MEDIA ID
-async function getMediaId(fileLocation) {
-  console.log("IN MEDIA ID here is fileLocation", fileLocation);
-  var data = new FormData();
-  data.append('media_data', fs.createReadStream(fileLocation));
 
-  var configMediaId = {
+//UPLOAD FILE AND GET MEDIA ID
+async function getMediaId(base64Location) {
+  var data = new FormData();
+  data.append('media_data', fs.createReadStream(base64Location));
+
+  var config = {
     method: 'post',
     url: 'https://upload.twitter.com/1.1/media/upload.json',
     headers: { 
-      'Authorization': 'OAuth oauth_consumer_key="pufmcF3kGmpDVFcvDbbYaengK",oauth_token="24737459-topbrUHGWHQkZXfMqctnOQ77XwAdr9ERAhlUOKG0s",oauth_signature_method="HMAC-SHA1",oauth_timestamp="1598194653",oauth_nonce="SZIm2rGaT4U",oauth_version="1.0",oauth_signature="R1hllzvQdzTDwbbPfpP9IWndFUk%3D"', 
-      'Cookie': 'personalization_id="v1_5lhFvw9qvMPnaFzOpi7UwA=="; guest_id=v1%3A159804355865560354; lang=en', 
+      'Authorization': `OAuth oauth_consumer_key=${oAuthConfig.consumer_key},oauth_token=${oAuthConfig.token},oauth_signature_method="HMAC-SHA1",oauth_timestamp="1598333093",oauth_nonce="MDtu575iz2J",oauth_version="1.0",oauth_signature="FrA5543kyHi1LS90UpemSkZbS6Q%3D"`, 
+      'Cookie': 'personalization_id="v1_xQuSglKogja1ug6Y/z6g1w=="; guest_id=v1%3A159804361564129710; lang=en', 
       ...data.getHeaders()
     },
     data : data
   };
+
   try {
-    const response = await axios(configMediaId)
+    const response = await axios(config)
     return response.data.media_id_string;
   }
   catch (error) {
     console.log('media ID error :(', error);
   }
-
 }
 
+// Uses Bearer token btw
 async function getCoords(hashtag) {
   var config = {
     method: 'get',
@@ -105,7 +91,7 @@ async function getCoords(hashtag) {
   }
 }
 
-async function errorConfig(message,senderScreenName,error_msg) {
+async function buildErrorConfig(message,senderScreenName,error_msg) {
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
     oauth: oAuthConfig,
@@ -188,21 +174,23 @@ async function mainLogic(event) {
   
   try {
 
-    // getCoords checks for errors then returns coordindates
+    // getCoords returns raw_coordinates or error message
     const raw_coords = await getCoords(cleanHashtag);
 
-    // getPlaces cleans the data, returns it
-    const cleanedCoords = await cleanCoords(raw_coords);
-
-    const fileLocation = './res.png'
-
-    const file64 = await plot.buildPlot(fileLocation,cleanedCoords)
-    console.log("what is file64", file64);
-    const mediaId = await getMediaId(file64);
-    // console.log("returning info from getCoords\n",coords)
-    const requestConfig = await buildConfig(message,senderScreenName,mediaId)
-    //console.log(requestConfig);
-    await post(requestConfig);
+    if (raw_coords == errorMsg || raw_coords == errorGeo) {
+      const errorConfig = await buildErrorConfig(message,senderScreenName,raw_coords);
+      await post(errorConfig);
+    }
+    else {
+      // getPlaces cleans the data, returns it
+      const cleanedCoords = await cleanCoords(raw_coords);
+      const base64Location = await plot.buildPlot(pngLocation,cleanedCoords)
+      const mediaId = await getMediaId(base64Location);
+      // console.log("returning info from getCoords\n",coords)
+      const requestConfig = await buildConfig(message,senderScreenName,mediaId)
+      //console.log(requestConfig);
+      await post(requestConfig);
+    }
 
   } catch (err) {
     console.log('we threw an error', err);
@@ -212,6 +200,7 @@ async function mainLogic(event) {
 (async start => {
   try {
     const webhook = new Autohook();
+
     // Calls mainlogic on any event
     webhook.on('event', async event => {
       if (event.direct_message_events) {
