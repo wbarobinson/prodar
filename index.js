@@ -20,7 +20,7 @@ const oAuthConfig = {
 
 const botId = process.env.BOT_ID;
 const errorMsg = "No results returned";
-const errorGeo = "No geo results";
+const errorGeo = "No geo result";
 const pngLocation = './res.png'
 
 
