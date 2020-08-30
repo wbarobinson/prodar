@@ -5,11 +5,13 @@ const axios = require('axios');
 const plot = require('./plot.js');
 const l_util = require('./local_utils.js');
 const fs = require('fs');
+const crypto = require('crypto');
+var oauthSignature = require('oauth-signature');
 var FormData = require('form-data');
 
 
 const post = util.promisify(request.post);
-
+const bearerToken = process.env.TWITTER_BEARER_TOKEN;
 
 const oAuthConfig = {
   token: process.env.TWITTER_ACCESS_TOKEN,
@@ -33,21 +35,46 @@ async function cleanCoords(rawCoords) {
   return clean_coords
 }
 
+//WORKING ON DYNAMIC REQUESTS
+// create nonce
+//let nonce = crypto.randomBytes(16).toString('base64');
+//let nonce = 'uRMeg91tEFl';
+// FIX THIS CODE TO BE MORE DYNAMIC AND PRETTY
+let timestamp = Date.now().toString().slice(0,10);
+console.log(timestamp);
+
 //UPLOAD FILE AND GET MEDIA ID
 async function getMediaId(base64Location) {
   var data = new FormData();
   data.append('media_data', fs.createReadStream(base64Location));
+    //Testing to get same signature
+    let signature = oauthSignature.generate(
+      'POST', 
+      'https://upload.twitter.com/1.1/media/upload.json', 
+      {
+      oauth_consumer_key : "3TKYD9w8H5lRdyn69X8DoscqI",
+      oauth_token : "1297582273013768197-WcS1u2MASXTuOA3dyveaBtC4E8Fnip",
+      oauth_signature_method : 'HMAC-SHA1',
+      oauth_timestamp : timestamp,
+      oauth_nonce : "uRMeg91tEFl",
+      oauth_version : "1.0"
+      }, 
+      oAuthConfig.consumer_secret,
+      oAuthConfig.token_secret);
 
+  // FROM POSTMAN
   var config = {
     method: 'post',
     url: 'https://upload.twitter.com/1.1/media/upload.json',
     headers: { 
-      'Authorization': `OAuth oauth_consumer_key=${oAuthConfig.consumer_key},oauth_token=${oAuthConfig.token},oauth_signature_method="HMAC-SHA1",oauth_timestamp="1598333093",oauth_nonce="MDtu575iz2J",oauth_version="1.0",oauth_signature="FrA5543kyHi1LS90UpemSkZbS6Q%3D"`, 
-      'Cookie': 'personalization_id="v1_xQuSglKogja1ug6Y/z6g1w=="; guest_id=v1%3A159804361564129710; lang=en', 
+      'Authorization': `OAuth oauth_consumer_key="3TKYD9w8H5lRdyn69X8DoscqI",oauth_token="1297582273013768197-WcS1u2MASXTuOA3dyveaBtC4E8Fnip",oauth_signature_method="HMAC-SHA1",oauth_timestamp="${timestamp}",oauth_nonce="uRMeg91tEFl",oauth_version="1.0",oauth_signature="${signature}"`, 
+      'Cookie': 'personalization_id="v1_5lhFvw9qvMPnaFzOpi7UwA=="; guest_id=v1%3A159804355865560354; lang=en', 
       ...data.getHeaders()
     },
     data : data
   };
+  
+
 
   try {
     const response = await axios(config)
@@ -63,8 +90,9 @@ async function getCoords(hashtag) {
   var config = {
     method: 'get',
     url:`https://api.twitter.com/2/tweets/search/recent?expansions=geo.place_id,author_id&place.fields=geo&user.fields=username&query=${hashtag}&max_results=100`,
+
     headers: { 
-      'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAADbmGwEAAAAAqsWLSbK9fvMSulMl391sVSZmF1I%3D0KTlIfyCwjQ3UIwqoKNZDpAj0O36PmOqtfZO2oiUij8Ap7NliF', 
+      'Authorization': `Bearer ${bearerToken}`, 
       'Cookie': 'personalization_id="v1_xQuSglKogja1ug6Y/z6g1w=="; guest_id=v1%3A159804361564129710'
     }
   };
@@ -91,7 +119,7 @@ async function getCoords(hashtag) {
   }
 }
 
-async function buildErrorConfig(message,senderScreenName,error_msg) {
+async function buildErrorConfig(senderId,error_msg) {
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
     oauth: oAuthConfig,
@@ -100,10 +128,10 @@ async function buildErrorConfig(message,senderScreenName,error_msg) {
         type: 'message_create',
         message_create: {
           target: {
-            recipient_id: message.message_create.sender_id,
+            recipient_id: senderId,
           },
           message_data: {
-            text: `Hi @${senderScreenName}! ${error_msg} :(`,
+            text: `${error_msg} :(`,
           },
         },
       },
@@ -113,7 +141,7 @@ async function buildErrorConfig(message,senderScreenName,error_msg) {
   return requestConfig;
 }
 
-async function buildConfig(message,senderScreenName,media_id) {
+async function buildConfig(senderId, media_id) {
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
     oauth: oAuthConfig,
@@ -122,10 +150,10 @@ async function buildConfig(message,senderScreenName,media_id) {
         type: 'message_create',
         message_create: {
           target: {
-            recipient_id: message.message_create.sender_id,
+            recipient_id: senderId,
           },
           message_data: {
-            text: `Hi @${senderScreenName}! Here are your coordinates ^ 👋`,
+            text: `Here are your coordinates ^ 👋`,
             attachment: {
               type: "media", 
               media: {
@@ -145,50 +173,55 @@ async function mainLogic(event) {
   // We check that the message is a direct message
   if (!event.direct_message_events) {
     return;
-  }
+  };
 
   // Messages are wrapped in an array, so we'll extract the first element
   const message = event.direct_message_events.shift();
 
+  // We filter out message you send, to avoid an infinite loop
   if (message.message_create.sender_id === botId) {
     return;
-  }
+  };
+
   // We check that the message is valid
   if (typeof message === 'undefined' || typeof message.message_create === 'undefined') {
     return;
-  }
- 
-  // We filter out message you send, to avoid an infinite loop
+  };
+
+  // We filter out message you send, to avoid an infinite loop (PROBABLY REDUNDANT BUT WE DO NOT WANT TO CHANCE IT YET)
   if (message.message_create.sender_id === message.message_create.target.recipient_id) {
     return;
-  }
+  };
 
-  // Prepare and send the message reply
-  const senderScreenName = event.users[message.message_create.sender_id].screen_name;
+  // Get the ID of the person DMing the bot, so we know who to later send the response to.
+  const senderId = message.message_create.sender_id;
 
-  // Get user query
-  var hashtag2 = message.message_create.message_data.text;
-  // Call input validation function to alter hashtag to %23
-  cleanHashtag = await l_util.cleanHashtag(hashtag2);
-  
-  
+  // Get get DM's text to then use it as a parameter for the Tweet Search
+  var hashtag = message.message_create.message_data.text;
+
+  // Call input validation function to alter hashtag to %23, because URLs do not like #'s
+  cleanHashtag = await l_util.cleanHashtag(hashtag);
+
   try {
 
     // getCoords returns raw_coordinates or error message
     const raw_coords = await getCoords(cleanHashtag);
 
+    // Handle the errors
     if (raw_coords == errorMsg || raw_coords == errorGeo) {
-      const errorConfig = await buildErrorConfig(message,senderScreenName,raw_coords);
+      const errorConfig = await buildErrorConfig(senderId,raw_coords);
       await post(errorConfig);
     }
     else {
-      // getPlaces cleans the data, returns it
+      // cleanCoords makes the data returned by getCoords readable by buildPlot
       const cleanedCoords = await cleanCoords(raw_coords);
+      // buildPlot creates the image was are going to send to the DMer and returns its file location
       const base64Location = await plot.buildPlot(pngLocation,cleanedCoords)
+      // getMediaId sends the image to Twitter, which returns a Media Id pointing to the image on their servers
       const mediaId = await getMediaId(base64Location);
-      // console.log("returning info from getCoords\n",coords)
-      const requestConfig = await buildConfig(message,senderScreenName,mediaId)
-      //console.log(requestConfig);
+      // buildConfig builds the API request to Twitter to DM the DMer the Media Id of the file
+      const requestConfig = await buildConfig(senderId,mediaId)
+      // Now we send the API request.
       await post(requestConfig);
     }
 

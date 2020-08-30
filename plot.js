@@ -8,8 +8,11 @@ const util = require('util');
 var plotly = require('plotly')(process.env.PLOTLY_USER,process.env.PLOTLY_API)
 var fs = require('fs');
 
-const l_util = require('./local_utils.js')
+// const l_util = require('./local_utils.js')
 
+
+// These functions take time, but must be completed before additional unctions are fired
+// Here they were promisfied to make that happen
 const readFile = util.promisify(fs.readFile);
 const writeFile = util.promisify(fs.writeFile) 
 
