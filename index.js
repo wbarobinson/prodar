@@ -8,6 +8,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 var oauthSignature = require('oauth-signature');
 var FormData = require('form-data');
+var nonce = require('nonce-generator');
 
 
 const post = util.promisify(request.post);
@@ -33,30 +34,34 @@ async function cleanCoords(rawCoords) {
     clean_coords.push(item.geo.bbox.slice(0,2))
   });
   return clean_coords
-}
+};
 
-//WORKING ON DYNAMIC REQUESTS
-// create nonce
-//let nonce = crypto.randomBytes(16).toString('base64');
-//let nonce = 'uRMeg91tEFl';
-// FIX THIS CODE TO BE MORE DYNAMIC AND PRETTY
-let timestamp = Date.now().toString().slice(0,10);
-console.log(timestamp);
+const nonceUrl = nonce(5);
+const timestamp = Date.now().toString().slice(0,10);
+
 
 //UPLOAD FILE AND GET MEDIA ID
 async function getMediaId(base64Location) {
   var data = new FormData();
   data.append('media_data', fs.createReadStream(base64Location));
-    //Testing to get same signature
+
+    let payload = {
+      method: 'POST',
+      url: 'https://upload.twitter.com/1.1/media/upload.json',
+      timestamp: timestamp,
+      nonce: nonceUrl,
+      consumerKey: oAuthConfig.consumer_key
+    } 
+
     let signature = oauthSignature.generate(
-      'POST', 
-      'https://upload.twitter.com/1.1/media/upload.json', 
+      payload.method, 
+      payload.url, 
       {
-      oauth_consumer_key : "3TKYD9w8H5lRdyn69X8DoscqI",
-      oauth_token : "1297582273013768197-WcS1u2MASXTuOA3dyveaBtC4E8Fnip",
+      oauth_consumer_key : payload.consumerKey,
+      oauth_token : oAuthConfig.token,
       oauth_signature_method : 'HMAC-SHA1',
       oauth_timestamp : timestamp,
-      oauth_nonce : "uRMeg91tEFl",
+      oauth_nonce : nonceUrl,
       oauth_version : "1.0"
       }, 
       oAuthConfig.consumer_secret,
@@ -64,10 +69,10 @@ async function getMediaId(base64Location) {
 
   // FROM POSTMAN
   var config = {
-    method: 'post',
-    url: 'https://upload.twitter.com/1.1/media/upload.json',
+    method: payload.method,
+    url: payload.url,
     headers: { 
-      'Authorization': `OAuth oauth_consumer_key="3TKYD9w8H5lRdyn69X8DoscqI",oauth_token="1297582273013768197-WcS1u2MASXTuOA3dyveaBtC4E8Fnip",oauth_signature_method="HMAC-SHA1",oauth_timestamp="${timestamp}",oauth_nonce="uRMeg91tEFl",oauth_version="1.0",oauth_signature="${signature}"`, 
+      'Authorization': `OAuth oauth_consumer_key="${oAuthConfig.consumer_key}",oauth_token="${oAuthConfig.token}",oauth_signature_method="HMAC-SHA1",oauth_timestamp="${timestamp}",oauth_nonce="${nonceUrl}",oauth_version="1.0",oauth_signature="${signature}"`, 
       'Cookie': 'personalization_id="v1_5lhFvw9qvMPnaFzOpi7UwA=="; guest_id=v1%3A159804355865560354; lang=en', 
       ...data.getHeaders()
     },
