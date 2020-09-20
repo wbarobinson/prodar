@@ -1,4 +1,7 @@
+
 # Prodar: A Twitter bot for protestors
+
+### [DEMO](https://www.youtube.com/watch?v=a_MKGr6oDeY&feature=emb_logo)
 
 Direct Messages to this twitter bot as used as a "search term" against recent tweets.
 The bot will return a map of the coordinates of the tweets matching the "search term".
