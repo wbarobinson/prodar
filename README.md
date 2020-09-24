@@ -15,7 +15,7 @@ These protestors and protest organizers can then DM the bot to get all the geolo
 This can help everyone better organize safely.
 
 
-### To use this bot:
+### To use this bot (deprecated until we can host on Heroku):
 
 Send a direct message to [Prodar2020](https://twitter.com/2020prodar) with your query.
 
